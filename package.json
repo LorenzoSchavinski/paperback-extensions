@@ -1,0 +1,30 @@
+{
+  "name": "personal-paperback-manga-sources",
+  "version": "0.4.0",
+  "private": true,
+  "repositoryName": "Personal Manga Sources",
+  "description": "Self-owned manga sources for Paperback iOS 0.8",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "bundle": "paperback bundle",
+    "serve": "paperback serve",
+    "test": "paperback test AsuraScans && paperback test MangaFire && paperback test Mgeko",
+    "verify": "npm run check && npm run bundle"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@paperback/toolchain": "0.8.0-alpha.47",
+    "@paperback/types": "0.8.0-alpha.47"
+  },
+  "overrides": {
+    "@paperback/runtime-polyfills": "0.8.0-alpha.47"
+  },
+  "devDependencies": {
+    "cheerio": "1.0.0-rc.12",
+    "@types/node": "20.11.30",
+    "typescript": "4.9.5"
+  },
+  "license": "UNLICENSED"
+}

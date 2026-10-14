@@ -1,0 +1,11 @@
+node_modules/
+lib/
+tmp/
+bundles/
+.DS_Store
+*.log
+*.tgz
+.playwright-mcp/
+.env
+.env.*
+!.env.example
