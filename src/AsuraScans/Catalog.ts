@@ -14,7 +14,7 @@ export function asuraCatalog(value: unknown, page: number, previousIds?: string[
   }
   const cards = discoveryCards(response.data, true)
   const ids = cards.map(card => card.mangaId)
-  if (cards.length > ASURA_PAGE_SIZE || (meta.has_more && !cards.length) ||
+  if (cards.length !== response.data.length || cards.length > ASURA_PAGE_SIZE || (meta.has_more && !cards.length) ||
       (cards.length === 0 && (page - 1) * ASURA_PAGE_SIZE < meta.total!)) {
     throw new Error('Asura returned an incomplete catalog page')
   }

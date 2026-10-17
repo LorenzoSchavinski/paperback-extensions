@@ -7,8 +7,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "bundle": "paperback bundle",
-    "serve": "paperback serve",
-    "test": "paperback test AsuraScans && paperback test MangaFire && paperback test Mgeko",
+    "test": "paperback test AsuraScans && paperback test MangaFire && paperback test Mgeko && paperback test LycanToons && paperback test NexusToons",
     "verify": "npm run check && npm run bundle"
   },
   "engines": {

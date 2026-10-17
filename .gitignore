@@ -9,3 +9,5 @@ bundles/
 .env
 .env.*
 !.env.example
+docs/research/extension-design.md
+AGENTS.md

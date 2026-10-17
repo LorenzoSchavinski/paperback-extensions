@@ -8,12 +8,13 @@ import { GenreCache } from '../shared/discovery/Genres'
 import { normalizeText } from '../shared/Urls'
 import { assertCatalogResults } from '../shared/html/Catalog'
 import { nextDocumentPage } from '../shared/html/Pagination'
+import { createDiscoveryPage } from '../shared/discovery/Page'
 
 export const AsuraScansInfo: SourceInfo = {
-  name: 'AsuraScans', version: '0.3.6', icon: 'asura.png', author: 'Lorenzo',
+  name: 'AsuraScans', version: '0.3.8', icon: 'asura.png', author: 'Lorenzo',
   description: 'Self-owned AsuraScans source', websiteBaseURL: 'https://asurascans.com',
   contentRating: ContentRating.MATURE, sourceTags: [],
-  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS
+  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS | SourceIntents.CLOUDFLARE_BYPASS_REQUIRED
 }
 const config: SiteConfig = {
   base: 'https://asurascans.com',
@@ -92,7 +93,7 @@ export class AsuraScans extends HtmlSource {
         return { cards, hasMore: false }
       })
       row.items = (row.id === 'latest' ? result.cards.slice(0, 10) : result.cards).map(card => App.createPartialSourceManga(card))
-      row.containsMoreItems = result.hasMore
+      row.containsMoreItems = result.cards.length > row.items.length || result.hasMore
       callback(row)
     })
     const results = await Promise.allSettled(pending)
@@ -109,8 +110,8 @@ export class AsuraScans extends HtmlSource {
     const result = page === 1
       ? await this.discoveryCache.load('latest', () => this.loadLatest(1))
       : await this.loadLatest(page, metadata?.previousIds)
-    return App.createPagedResults({
-      results: result.cards.map(card => App.createPartialSourceManga(card)),
+    return createDiscoveryPage({
+      results: result.cards,
       metadata: result.hasMore ? { page: page + 1, previousIds: result.cards.map(card => card.mangaId) } : undefined
     })
   }

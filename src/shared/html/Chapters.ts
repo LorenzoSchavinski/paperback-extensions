@@ -19,7 +19,7 @@ export function chapterLinks(cheerio: CheerioAPI, html: string, url: string, con
     content.find('span,div,p,br').append(' ')
     const name = normalizeText(link.attr('title') || content.text())
     if (!name) return
-    chapters.set(id, { id, name, chapNum: chapterNumber(id) || chapterNumber(name) })
+    chapters.set(id, { id, name, chapNum: chapterNumber(id) ?? chapterNumber(name) ?? 0 })
   })
   return [...chapters.values()]
 }

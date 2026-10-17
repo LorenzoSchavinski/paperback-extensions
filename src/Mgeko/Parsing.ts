@@ -26,7 +26,7 @@ export function parseMgekoChapters(cheerio: CheerioAPI, html: string, pageUrl: s
     const label = normalizeText(link.find('.chapter-title').first().text())
     if (!label) return
     const number = /^(\d+(?:[.-]\d+)?)(?:-eng-li)?$/i.exec(label)
-    const chapNum = number ? Number(number[1].replace('-', '.')) : chapterNumber(label) || chapterNumber(id)
+    const chapNum = number ? Number(number[1].replace('-', '.')) : chapterNumber(label) ?? chapterNumber(id) ?? 0
     const name = number ? `Chapter ${number[1].replace('-', '.')}` : label
     chapters.set(id, { id, name, chapNum })
   })

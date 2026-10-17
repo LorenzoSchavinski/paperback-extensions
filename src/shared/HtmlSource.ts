@@ -30,7 +30,7 @@ export abstract class HtmlSource extends Source {
     }
   })
 
-  getCloudflareBypassRequest(): Request {
+  async getCloudflareBypassRequestAsync(): Promise<Request> {
     return App.createRequest({url: this.config.base, method: 'GET'})
   }
 

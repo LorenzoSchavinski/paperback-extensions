@@ -6,12 +6,13 @@ import { MANGAFIRE_BASE, mangaFireHid, mangaFireChapterId, mangaFireList, mangaF
 import { DiscoveryCache } from '../shared/discovery/Cache'
 import { GenreCache } from '../shared/discovery/Genres'
 import { DiscoveryPage, createDiscoveryPage } from '../shared/discovery/Page'
+import { loadDiscoverySections } from '../shared/discovery/Sections'
 
 export const MangaFireInfo: SourceInfo = {
-  name: 'MangaFire', version: '0.3.6', icon: 'mangafire.png', author: 'Lorenzo',
+  name: 'MangaFire', version: '0.3.8', icon: 'mangafire.png', author: 'Lorenzo',
   description: 'Self-owned MangaFire source', websiteBaseURL: 'https://mangafire.to',
   contentRating: ContentRating.MATURE, sourceTags: [],
-  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS
+  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS | SourceIntents.CLOUDFLARE_BYPASS_REQUIRED
 }
 export class MangaFire extends Source {
   private readonly discovery = new DiscoveryCache<DiscoveryPage>()
@@ -27,7 +28,7 @@ export class MangaFire extends Source {
     }
   })
 
-  getCloudflareBypassRequest(): Request { return App.createRequest({ url: MANGAFIRE_BASE, method: 'GET' }) }
+  async getCloudflareBypassRequestAsync(): Promise<Request> { return App.createRequest({ url: MANGAFIRE_BASE, method: 'GET' }) }
 
   protected async api(path: string, parameters: Record<string, string | number> = {}): Promise<unknown> {
     const response = await this.requestManager.schedule(App.createRequest({ url: mangaFireApiUrl(path, parameters), method: 'GET' }), 1)
@@ -37,7 +38,7 @@ export class MangaFire extends Source {
     try { return JSON.parse(response.data) as unknown } catch (_) { throw new Error(`MangaFire returned a browser challenge or invalid JSON at ${path}`) }
   }
 
-  async getSearchResults(query: SearchRequest, metadata: { page?: number; query?: SearchRequest } | undefined): Promise<PagedResults> {
+  async getSearchResults(query: SearchRequest, metadata: { page?: number; previousIds?: string[]; query?: SearchRequest } | undefined): Promise<PagedResults> {
     query = metadata?.query ?? query
     const page = Math.max(1, Math.min(1000, Math.floor(Number(metadata?.page) || 1)))
     const title = normalizeText(query?.title)
@@ -49,21 +50,25 @@ export class MangaFire extends Source {
         tags.forEach((tag, index) => { parameters[`${key}[${index}]`] = tag.id })
       }
     }
-    const results = await this.catalog(parameters, page)
+    const results = await this.catalog(parameters, page, metadata?.previousIds)
     if (results.metadata && (query.includedTags?.length || query.excludedTags?.length)) results.metadata = { ...results.metadata, query }
     return results
   }
 
-  private async catalog(parameters: Record<string, string | number>, page: number): Promise<PagedResults> {
-    return createDiscoveryPage(await this.catalogPage(parameters, page))
+  private async catalog(parameters: Record<string, string | number>, page: number, previousIds?: string[]): Promise<PagedResults> {
+    return createDiscoveryPage(await this.catalogPage(parameters, page, previousIds))
   }
 
-  private async catalogPage(parameters: Record<string, string | number>, page: number): Promise<DiscoveryPage> {
+  private async catalogPage(parameters: Record<string, string | number>, page: number, previousIds?: string[]): Promise<DiscoveryPage> {
     const list = mangaFireList(await this.api('/titles', parameters))
     if (list.page !== page) throw new Error('MangaFire repeated the wrong catalog page')
     const results = list.items.map(mangaFireCard)
     if (!results.length && list.hasNext) throw new Error('MangaFire returned an incomplete catalog page')
-    return { results, metadata: list.hasNext ? { page: page + 1 } : undefined }
+    const ids = results.map(result => result.mangaId)
+    if (page > 1 && ids.length && ids.length === previousIds?.length && ids.every((id, index) => id === previousIds[index])) {
+      throw new Error('MangaFire repeated the previous catalog page')
+    }
+    return { results, metadata: list.hasNext ? { page: page + 1, previousIds: ids } : undefined }
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
@@ -99,31 +104,21 @@ export class MangaFire extends Source {
   }
 
   async getHomePageSections(callback: (section: HomeSection) => void): Promise<void> {
-    const sections = mangaFireSections.map(definition => {
-      const section = App.createHomeSection({ id: definition.id, title: definition.title, type: 'singleRowNormal', containsMoreItems: definition.id !== 'daily', items: [] })
-      callback(section)
-      return section
-    })
-    await this.genres.prepare(() => this.fetchGenres())
-    const outcomes = await Promise.allSettled(sections.map(async section => {
-      const page = await this.discoveryPage(section.id, 1)
-      section.items = page.results.slice(0, 10).map(card => App.createPartialSourceManga(card))
-      section.containsMoreItems = page.results.length > section.items.length || !!page.metadata
-      callback(section)
-    }))
-    for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason
+    return loadDiscoverySections(mangaFireSections.map(section => ({ ...section, containsMoreItems: section.id !== 'daily' })), callback,
+      () => this.genres.prepare(() => this.fetchGenres()),
+      id => this.discoveryPage(id, 1))
   }
-  async getViewMoreItems(id: string, metadata: { page?: number } | undefined): Promise<PagedResults> {
+  async getViewMoreItems(id: string, metadata: { page?: number; previousIds?: string[] } | undefined): Promise<PagedResults> {
     const page = Math.max(1, Math.min(1000, Math.floor(Number(metadata?.page) || 1)))
-    return createDiscoveryPage(await this.discoveryPage(id, page))
+    return createDiscoveryPage(await this.discoveryPage(id, page, metadata?.previousIds))
   }
 
-  private async discoveryPage(id: string, page: number): Promise<DiscoveryPage> {
+  private async discoveryPage(id: string, page: number, previousIds?: string[]): Promise<DiscoveryPage> {
     const section = mangaFireSections.find(section => section.id === id)
     if (!section) throw new Error('Unknown MangaFire home section')
     const load = async () => id === 'daily'
       ? { results: mangaFireTrendingCards(await this.api('/top-titles', { type: 'trending', days: 1, limit: 30 })) }
-      : this.catalogPage({ page, limit: 30, [`order[${section.order}]`]: 'desc' }, page)
+      : this.catalogPage({ page, limit: 30, [`order[${section.order}]`]: 'desc' }, page, previousIds)
     return page > 1 ? await load() : await this.discovery.load(id, load)
   }
   async getSearchTags() {

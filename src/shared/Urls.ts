@@ -39,15 +39,17 @@ export function normalizeText(text: string | undefined | null): string {
   return (text || '').replace(/\s+/g, ' ').trim()
 }
 
-export function chapterNumber(text: string): number {
+export function chapterNumber(text: string): number | undefined {
+  const route = /\/(?:chapter|chap|ch)\/([^/]+)$/i.exec(text)
+  text = route ? 'chapter ' + route[1] : text
   const match = /(?:\bchapter\b|\bchap\.?\b|\bch\.?\b|\bepisode\b|\bep\.?\b|\/chapter\/|\/chap\/|\/ch\/)[\s:/._#-]*(\d+(?:[.\-]\d+)?)/i.exec(text)
   if (!match) {
     // Some sites use plain numeric chapter labels: "5-eng-li" or "#34".
-    const simple = /^(?:#\s*)?(\d+(?:\.\d+)?)(?:-eng-li)?$/i.exec(normalizeText(text))
-    return simple ? Number(simple[1]) : 0
+    const simple = /^(?:#\s*)?(\d+(?:[.\-]\d+)?)(?:-eng-li)?$/i.exec(normalizeText(text))
+    return simple ? Number(simple[1].replace('-', '.')) : undefined
   }
   const number = match[1].replace('-', '.')
-  return Number(number) || 0
+  return Number(number)
 }
 
 export function isProbablePageImage(url: string, allowDynamicImageUrls = false): boolean {

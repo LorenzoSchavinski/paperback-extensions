@@ -83,10 +83,9 @@ export function mangaFirePages(value: unknown, mangaId: string, chapterId: strin
   if (String(number(data.id, 'reader chapter ID')) !== mangaFireChapterId(chapterId)) throw new Error('MangaFire returned a different chapter')
   if (text(object(data.title, 'reader title').hid) !== mangaFireHid(mangaId)) throw new Error('MangaFire returned pages for a different manga')
   if (!Array.isArray(data.pages) || !data.pages.length) throw new Error('MangaFire returned no reader pages')
-  const pages = data.pages.map(page => {
+  return data.pages.map(page => {
     const url = absoluteUrl(text(object(page, 'reader page').url), MANGAFIRE_BASE)
     if (!isProbablePageImage(url, true)) throw new Error('MangaFire returned an invalid reader image URL')
     return url
   })
-  return [...new Set(pages)]
 }

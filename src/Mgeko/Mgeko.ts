@@ -7,12 +7,13 @@ import { mgekoSections, mgekoBrowsePage, mgekoGenres } from './Browsing'
 import { DiscoveryCache } from '../shared/discovery/Cache'
 import { GenreCache } from '../shared/discovery/Genres'
 import { DiscoveryPage, createDiscoveryPage } from '../shared/discovery/Page'
+import { loadDiscoverySections } from '../shared/discovery/Sections'
 
 export const MgekoInfo: SourceInfo = {
-  name: 'Mgeko', version: '0.3.6', icon: 'mgeko.png', author: 'Lorenzo',
+  name: 'Mgeko', version: '0.3.8', icon: 'mgeko.png', author: 'Lorenzo',
   description: 'Self-owned Mgeko source', websiteBaseURL: 'https://www.mgeko.cc',
   contentRating: ContentRating.MATURE, sourceTags: [],
-  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS
+  intents: SourceIntents.MANGA_CHAPTERS | SourceIntents.HOMEPAGE_SECTIONS | SourceIntents.CLOUDFLARE_BYPASS_REQUIRED
 }
 const config: SiteConfig = {
   base: 'https://www.mgeko.cc',
@@ -45,20 +46,12 @@ export class Mgeko extends HtmlSource {
   }
 
   async getHomePageSections(callback: (section: HomeSection) => void): Promise<void> {
-    const sections = mgekoSections.map(definition => {
-      const section = App.createHomeSection({ id: definition.id, title: definition.title, containsMoreItems: true, type: 'singleRowNormal', items: [] })
-      callback(section)
-      return section
-    })
-    await this.genres.prepare(() => this.fetchGenres())
-    const outcomes = await Promise.allSettled(sections.map(async section => {
-      const definition = mgekoSections.find(definition => definition.id === section.id)!
-      const page = await this.discovery.load(definition.sort, () => this.browsePage(definition.sort, 1))
-      section.items = page.results.slice(0, 10).map(card => App.createPartialSourceManga(card))
-      section.containsMoreItems = page.results.length > section.items.length || !!page.metadata
-      callback(section)
-    }))
-    for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason
+    return loadDiscoverySections(mgekoSections.map(section => ({ ...section, containsMoreItems: true })), callback,
+      () => this.genres.prepare(() => this.fetchGenres()),
+      id => {
+        const section = mgekoSections.find(section => section.id === id)!
+        return this.discovery.load(section.sort, () => this.browsePage(section.sort, 1))
+      })
   }
 
   async getViewMoreItems(id: string, metadata: { page?: number; previousIds?: string[]; query?: SearchRequest } | undefined): Promise<PagedResults> {

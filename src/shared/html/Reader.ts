@@ -11,5 +11,5 @@ export function readerPages(cheerio: CheerioAPI, html: string, url: string, conf
     return { url: imageUrl(item, url, true, true), index: index !== undefined && /^\d+$/.test(index) ? Number(index) : undefined }
   }).get().filter(image => image.url)
   if (images.length && images.every(image => image.index !== undefined)) images.sort((a, b) => a.index! - b.index!)
-  return [...new Set(images.map(image => image.url))]
+  return images.map(image => image.url)
 }
